@@ -1,4 +1,6 @@
+requires 'curry', 0;
 requires 'parent', 0;
+requires 'Event::Distributor', 0;
 requires 'Future', '>= 0.29';
 requires 'Net::Async::IRC', 0;
 requires 'Net::Async::Matrix', '>= 0.08';

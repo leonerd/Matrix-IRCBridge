@@ -6,8 +6,10 @@ use Module::Build;
 Module::Build->new(
     module_name => 'MatrixBridge',
     requires => {
+        'curry' => 0,
         'parent' => 0,
         'Digest::SHA' => 0,
+        'Event::Distributor' => 0,
         'Future' => '0.29',
         'Net::Async::IRC' => 0,
         'Net::Async::Matrix' => '0.08',
@@ -21,6 +23,7 @@ Module::Build->new(
     test_requires => {
         'Test::More' => 0.98,
     },
+    recursive_test_files => 1,
     auto_configure_requires => 0, # Don't add M::B to configure_requires
     create_makefile_pl => 'small',
     create_readme => 1,
