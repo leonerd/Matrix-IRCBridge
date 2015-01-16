@@ -1,1 +1,4 @@
 .*.swp
+Build
+_build/
+blib/
