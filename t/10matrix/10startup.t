@@ -31,47 +31,60 @@ $dist->fire_sync( add_bridge_config =>
     { "matrix-room" => "#the-room:server.here" },
 );
 
+no warnings 'redefine';
+
+my $next_GET_events;
+my @next;
+
+*Net::Async::Matrix::_do_GET_json = sub {
+    shift;
+    my ( $url, %args ) = @_;
+    if( $url eq "/events" ) {
+        return $next_GET_events = Future->new;
+    }
+    push @next, [ GET => $url, my $f = Future->new, \%args ];
+    return $f;
+};
+
+*Net::Async::Matrix::_do_POST_json = sub {
+    shift;
+    my ( $url, $content, %args ) = @_;
+    push @next, [ POST => $url, my $f = Future->new, \%args, $content ];
+    return $f;
+};
+
 # startup
 {
-    no warnings 'redefine';
-
-    my %login_args;
-    local *Net::Async::Matrix::login = sub {
-        my $self = shift;
-        %login_args = @_;
-
-        $self->{access_token} = "TOKEN";
-
-        Future->done;
-    };
-
-    my $started;
-    local *Net::Async::Matrix::start = sub {
-        $started++;
-        Future->done;
-    };
-
-    my %join_f;
-    local *Net::Async::Matrix::join_room = sub {
-        shift;
-        my ( $room_alias ) = @_;
-        return $join_f{$room_alias} = Future->new;
-    };
-
     $dist->declare_signal( 'startup' );
 
     my $f = $dist->fire_async( startup => );
 
-    is_deeply( \%login_args,
-        { user_id => "my-user", password => "secret-here" },
-        '$namatrix->login args'
-    );
-    ok( $started, '$namatrix->start' );
+    # Complete the entire /login dance
+    ok( my $p = shift @next, 'request pending' );
+    is( $p->[0], "GET", 'request is GET' );
+    is( $p->[1], "/login", 'request URI' );
+    $p->[2]->done( {
+        flows => [ { type => "m.login.password", stages => [ "m.login.password" ] } ]
+    } );
+
+    ok( $p = shift @next, 'second request pending' );
+    is( $p->[0], "POST", 'request is POST' );
+    is( $p->[1], "/login", 'request URI' );
+    $p->[2]->done( { user_id => "my-user", access_token => "TOKEN" } );
+
+    # Probably have a GET /initialSync now
+    ok( $p = shift @next, 'third request pending' );
+    is( $p->[0], "GET", 'request is GET' );
+    is( $p->[1], "/initialSync", 'request URI' );
+    # Nothing
+    $p->[2]->done( { rooms => [], presence => [], end => "E-TOKEN" } );
 
     # Might not yet have the room join future, because of the 0-second delay
-    $loop->loop_once(1) until keys %join_f;
+    $loop->loop_once(1) until @next;
 
-    ok( $join_f{"#the-room:server.here"}, 'Room join future is pending' );
+    $p = shift @next;
+    is( $p->[0], "POST", 'request is POST' );
+    is( $p->[1], "/join/#the-room:server.here", 'request URI' );
 
     # TODO: can't ->done it yet without being able to mock in the room_id method
     # Also it would print a warning
