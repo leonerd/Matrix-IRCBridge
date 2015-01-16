@@ -6,6 +6,7 @@ use base qw( MatrixBridge::Component );
 
 use curry;
 use Future;
+use Future::Utils qw( try_repeat );
 
 use IO::Socket::SSL qw( SSL_VERIFY_NONE );
 use Net::Async::Matrix 0.13; # $room->invite; ->join_room bugfix
@@ -42,10 +43,6 @@ sub init
         on_message
     );
 
-    $dist->declare_signal( $_ ) for qw(
-        matrix_on_room_message
-    );
-
     my $matrix_config = $self->{matrix_config} = {
         %{ $self->conf->{matrix} },
         # No harm in always applying this
@@ -59,7 +56,7 @@ sub init
             my ( $matrix, $room ) = @_;
 
             $room->configure(
-                on_message => $self->curry::weak::on_room_message,
+                on_message => $self->curry::weak::_on_room_message,
             );
         },
         on_error => sub {
@@ -122,7 +119,8 @@ sub startup
 
     $login_f->then( sub {
         Future->wait_all( map {
-            my $room_alias = $_;
+            my $bridge = $_;
+            my $room_alias = $bridge->{"matrix-room"};
 
             $loop->delay_future( after => $delay++ )->then( sub {
                 try_repeat_with_delay {
@@ -152,15 +150,29 @@ sub on_message
     my $self = shift;
     my ( $dist, $type, @args ) = @_;
 
-    print STDERR "On '$type' message: @args\n";
+    return if $type eq "matrix";
+
+    warn "[Matrix] TODO - echo message out";
+    Future->done;
 }
 
-sub on_room_message
+sub _on_room_message
 {
     my $self = shift;
-    my ( $dist, $room, $from, $content ) = @_;
+    my ( $room, $from, $content ) = @_;
 
-    $dist->fire_sync( on_message => matrix => $room, $from, $content );
+    my $room_alias = $self->{room_alias_for_id}{$room->room_id} or return;
+    warn "[Matrix] in $room_alias: " . $content->{body} . "\n";
+
+    my $bridge = $self->{bridged_rooms}{$room_alias} or return;
+
+    my $msg = parse_formatted_message( $content );
+    my $msgtype = $content->{msgtype};
+
+    $self->dist->fire_sync( on_message => matrix => $bridge, $from, {
+        msg     => $msg,
+        msgtype => $msgtype,
+    });
 }
 
 0x55AA;
