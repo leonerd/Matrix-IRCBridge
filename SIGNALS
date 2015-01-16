@@ -1,0 +1,24 @@
+startup -- ()
+  Invoked once on program start after configuration, to connect to outbound servers
+
+shutdown -- ()
+  Invoked once at program exit time, to perform any tidy cleanup that is required
+
+log -- ($component, @args)
+  Print a logging message
+
+add_bridge_config -- ($config)
+  Invoked at configuration time once per bridge link, to set up the individual room links
+
+
+on_matrix_message -- %args
+send_matrix_message -- %args
+  Invoked on receipt of an inbound message, or to request an outbound message
+  Args are:
+    user_id   => string form of the sending user ID
+    room_name => string form of the name of the room (alias or ID)
+    type      => Matrix messagetype
+    message   => String::Tagged::Formatted message
+
+    displayname => Displayname of the sending user
+    content     => Full content body
