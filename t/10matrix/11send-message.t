@@ -106,7 +106,7 @@ my @next;
     # Sending a second message should now be nice and cheap
     my $f2 = $dist->fire_async( send_matrix_message =>
         user_id   => "login-user",
-        room_name=> "!abcdefg:server.here",
+        room_name => "!abcdefg:server.here",
         type      => "m.text",
         message   => "Second line",
     );
