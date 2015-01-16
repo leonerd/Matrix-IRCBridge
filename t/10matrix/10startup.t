@@ -77,7 +77,23 @@ my @next;
     is( $p->[0], "GET", 'request is GET' );
     is( $p->[1], "/initialSync", 'request URI' );
     # Nothing
-    $p->[2]->done( { rooms => [], presence => [], end => "E-TOKEN" } );
+    $p->[2]->done( {
+        rooms => [
+            {
+                room_id => "!abcdefg:server.here",
+                membership => "join",
+                state => [
+                    {
+                        type       => "m.room.member",
+                        state_key  => '@someone:server.here',
+                        membership => "join",
+                    },
+                ],
+            },
+        ],
+        presence => [],
+        end => "E-TOKEN" }
+    );
 
     # Might not yet have the room join future, because of the 0-second delay
     $loop->loop_once(1) until @next;
@@ -85,9 +101,40 @@ my @next;
     $p = shift @next;
     is( $p->[0], "POST", 'request is POST' );
     is( $p->[1], "/join/#the-room:server.here", 'request URI' );
+    $p->[2]->done( { room_id => "!abcdefg:server.here" } );
 
-    # TODO: can't ->done it yet without being able to mock in the room_id method
-    # Also it would print a warning
+    ok( defined $next_GET_events, 'GET /events is pending' );
+}
+
+# receive message
+{
+    $dist->declare_signal( 'on_message' );
+
+    my @received;
+    $dist->subscribe_sync( on_message => sub {
+        shift;
+        push @received, [ @_ ];
+    });
+
+    $next_GET_events->done( {
+        chunk => [ {
+            type    => "m.room.message",
+            room_id => "!abcdefg:server.here",
+            user_id => '@someone:server.here',
+            content => {
+                msgtype => "m.text",
+                body    => "Hello, world",
+            },
+        } ],
+        end => "E-TOKEN",
+    });
+
+    ok( scalar @received, 'on_message invoked' );
+    is_deeply( shift @received,
+        [ matrix => { 'matrix-room' => "#the-room:server.here" }, '@someone:server.here',
+            { msgtype => "m.text", msg => "Hello, world" } ],
+        'on_message arguments'
+    );
 }
 
 done_testing;

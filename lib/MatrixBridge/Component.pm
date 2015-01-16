@@ -23,4 +23,10 @@ sub loop { shift->{loop} }
 sub conf { shift->{conf} }
 sub dist { shift->{dist} }
 
+sub log
+{
+    my $self = shift;
+    $self->dist( log => $self, @_ );
+}
+
 0x55AA;

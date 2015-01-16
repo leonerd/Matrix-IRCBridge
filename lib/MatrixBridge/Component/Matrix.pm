@@ -51,7 +51,7 @@ sub init
 
     my $matrix = Net::Async::Matrix->new(
         %$matrix_config,
-        on_log => sub { warn "log: @_\n" },
+        on_log => $self->curry::weak::log,
         on_room_new => sub {
             my ( $matrix, $room ) = @_;
 
@@ -128,7 +128,7 @@ sub startup
                 } $loop
             })->on_done( sub {
                 my ( $room ) = @_;
-                warn "[Matrix] joined $room_alias\n";
+                $self->log( "joined $room_alias" );
                 $self->{bot_matrix_rooms}{$room_alias} = $room;
                 $self->{room_alias_for_id}{$room->room_id} = $room_alias;
             })
@@ -145,34 +145,38 @@ sub shutdown
     Future->done(1);
 }
 
-sub on_message
-{
-    my $self = shift;
-    my ( $dist, $type, @args ) = @_;
-
-    return if $type eq "matrix";
-
-    warn "[Matrix] TODO - echo message out";
-    Future->done;
-}
-
 sub _on_room_message
 {
     my $self = shift;
     my ( $room, $from, $content ) = @_;
 
     my $room_alias = $self->{room_alias_for_id}{$room->room_id} or return;
-    warn "[Matrix] in $room_alias: " . $content->{body} . "\n";
+    $self->log( "message in $room_alias: " . $content->{body} );
 
     my $bridge = $self->{bridged_rooms}{$room_alias} or return;
 
     my $msg = parse_formatted_message( $content );
     my $msgtype = $content->{msgtype};
 
-    $self->dist->fire_sync( on_message => matrix => $bridge, $from, {
-        msg     => $msg,
-        msgtype => $msgtype,
-    });
+    $self->dist->fire_sync( on_message => matrix =>
+        $bridge,
+        $from->user->user_id,
+        {
+            msg     => $msg,
+            msgtype => $msgtype,
+        }
+    );
+}
+
+sub on_message
+{
+    my $self = shift;
+    my ( $dist, $type, @args ) = @_;
+
+    return Future->done if $type eq "matrix";
+
+    warn "[Matrix] TODO - echo message out";
+    Future->done;
 }
 
 0x55AA;
