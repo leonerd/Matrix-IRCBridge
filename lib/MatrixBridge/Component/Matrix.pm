@@ -40,8 +40,9 @@ sub init
     $dist->subscribe_async( $_ => $self->${\"curry::$_"} ) for qw(
         add_bridge_config
         startup shutdown
-        on_message
     );
+
+    $dist->declare_signal( 'on_matrix_message' );
 
     my $matrix_config = $self->{matrix_config} = {
         %{ $self->conf->{matrix} },
@@ -158,7 +159,7 @@ sub _on_room_message
     my $msg = parse_formatted_message( $content );
     my $msgtype = $content->{msgtype};
 
-    $self->dist->fire_sync( on_message => matrix =>
+    $self->dist->fire_sync( on_matrix_message =>
         $bridge,
         $from->user->user_id,
         {

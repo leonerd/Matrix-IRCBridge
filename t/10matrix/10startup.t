@@ -108,10 +108,8 @@ my @next;
 
 # receive message
 {
-    $dist->declare_signal( 'on_message' );
-
     my @received;
-    $dist->subscribe_sync( on_message => sub {
+    $dist->subscribe_sync( on_matrix_message => sub {
         shift;
         push @received, [ @_ ];
     });
@@ -129,9 +127,9 @@ my @next;
         end => "E-TOKEN",
     });
 
-    ok( scalar @received, 'on_message invoked' );
+    ok( scalar @received, 'on_matrix_message invoked' );
     is_deeply( shift @received,
-        [ matrix => { 'matrix-room' => "#the-room:server.here" }, '@someone:server.here',
+        [ { 'matrix-room' => "#the-room:server.here" }, '@someone:server.here',
             { msgtype => "m.text", msg => "Hello, world" } ],
         'on_message arguments'
     );
