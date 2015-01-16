@@ -159,7 +159,7 @@ sub _on_room_message
     my $user_id = $from->user->user_id;
 
     # Suppress messages from my own ghosts
-    return if $self->{user_matrix}{$user_id};
+    return if $self->{ghosted_userids}{$user_id};
 
     my $room_alias = $self->{room_alias_for_id}{$room->room_id} or return;
     $self->log( "message from $user_id in $room_alias: " . $content->{body} );
@@ -244,6 +244,8 @@ sub _get_user_in_room
         ->on_fail( sub { delete $self->{user_matrix}{$user_id} } )
     )->then( sub {
         my ( $user_matrix ) = @_;
+        $self->{ghosted_userids}{$user_matrix->myself->user_id}++;
+
         my $user_rooms = $self->{user_rooms}{$user_id} //= {};
 
         return $user_rooms->{$room_name} //= $self->_join_user_to_room( $user_matrix, $room_name )
