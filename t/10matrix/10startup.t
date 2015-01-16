@@ -11,6 +11,7 @@ use Event::Distributor;
 use IO::Async::Loop;
 
 my $dist = Event::Distributor->new;
+$dist->declare_signal( 'log' );
 
 my $matrix = MatrixBridge::Component::Matrix->new(
     dist => $dist,

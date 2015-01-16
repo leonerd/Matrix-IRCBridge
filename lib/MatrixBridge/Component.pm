@@ -26,7 +26,7 @@ sub dist { shift->{dist} }
 sub log
 {
     my $self = shift;
-    $self->dist( log => $self, @_ );
+    $self->dist->fire_sync( log => $self, @_ );
 }
 
 0x55AA;
