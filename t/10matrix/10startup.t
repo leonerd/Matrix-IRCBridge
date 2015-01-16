@@ -112,7 +112,7 @@ my @next;
     my @received;
     $dist->subscribe_sync( on_matrix_message => sub {
         shift;
-        push @received, [ @_ ];
+        push @received, { @_ };
     });
 
     $next_GET_events->done( {
@@ -130,8 +130,18 @@ my @next;
 
     ok( scalar @received, 'on_matrix_message invoked' );
     is_deeply( shift @received,
-        [ { 'matrix-room' => "#the-room:server.here" }, '@someone:server.here',
-            { msgtype => "m.text", msg => "Hello, world" } ],
+        { user_id   => '@someone:server.here',
+          room_name => "#the-room:server.here",
+          type      => "m.text",
+          message   => "Hello, world",
+
+          content => {
+              format  => undef,
+              msgtype => "m.text",
+              body    => "Hello, world",
+          },
+          displayname => undef,
+        },
         'on_message arguments'
     );
 }

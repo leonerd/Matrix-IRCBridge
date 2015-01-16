@@ -156,24 +156,22 @@ sub _on_room_message
     my $self = shift;
     my ( $room, $from, $content ) = @_;
 
+    my $user_id = $from->user->user_id;
+
     # Suppress messages from my own ghosts
-    return if $self->{user_matrix}{$from->user->user_id};
+    return if $self->{user_matrix}{$user_id};
 
     my $room_alias = $self->{room_alias_for_id}{$room->room_id} or return;
-    $self->log( "message in $room_alias: " . $content->{body} );
-
-    my $bridge = $self->{bridged_rooms}{$room_alias} or return;
-
-    my $msg = parse_formatted_message( $content );
-    my $msgtype = $content->{msgtype};
+    $self->log( "message from $user_id in $room_alias: " . $content->{body} );
 
     $self->dist->fire_sync( on_matrix_message =>
-        $bridge,
-        $from->user->user_id,
-        {
-            msg     => $msg,
-            msgtype => $msgtype,
-        }
+        user_id   => $user_id,
+        room_name => $room_alias,
+        type      => $content->{msgtype},
+        message   => parse_formatted_message( $content ),
+
+        displayname => $from->user->displayname,
+        content     => $content,
     );
 }
 
@@ -223,24 +221,24 @@ sub _make_user
 sub _join_user_to_room
 {
     my $self = shift;
-    my ( $user_matrix, $room_id ) = @_;
+    my ( $user_matrix, $room_name ) = @_;
 
-    my $room_config = $self->{bridged_rooms}{$room_id};
+    my $room_config = $self->{bridged_rooms}{$room_name};
 
     ( $room_config->{"matrix-needs-invite"} ?
         # Inviting an existing member causes an error; we'll have to ignore it
-        $self->{bot_matrix_rooms}{$room_id}->invite( $user_matrix->myself->user_id )
+        $self->{bot_matrix_rooms}{$room_name}->invite( $user_matrix->myself->user_id )
             ->else_done() : # TODO(paul): a finer-grained error ignoring condition
         Future->done
     )->then( sub {
-        $user_matrix->join_room( $room_id );
+        $user_matrix->join_room( $room_name );
     });
 }
 
 sub _get_user_in_room
 {
     my $self = shift;
-    my ( $user_id, $displayname, $room_id ) = @_;
+    my ( $user_id, $displayname, $room_name ) = @_;
 
     ( $self->{user_matrix}{$user_id} ||= $self->_make_user( $user_id, $displayname )
         ->on_fail( sub { delete $self->{user_matrix}{$user_id} } )
@@ -248,8 +246,8 @@ sub _get_user_in_room
         my ( $user_matrix ) = @_;
         my $user_rooms = $self->{user_rooms}{$user_id} //= {};
 
-        return $user_rooms->{$room_id} //= $self->_join_user_to_room( $user_matrix, $room_id )
-            ->on_fail( sub { delete $user_rooms->{$room_id} } );
+        return $user_rooms->{$room_name} //= $self->_join_user_to_room( $user_matrix, $room_name )
+            ->on_fail( sub { delete $user_rooms->{$room_name} } );
     });
 }
 
@@ -258,12 +256,12 @@ sub send_matrix_message
     my $self = shift;
     my ( $dist, %args ) = @_;
 
-    my $user_id = $args{user_id};
-    my $room_id = $args{room_id};
-    my $type    = $args{type};
-    my $message = $args{message};
+    my $user_id   = $args{user_id};
+    my $room_name = $args{room_name};
+    my $type      = $args{type};
+    my $message   = $args{message};
 
-    $self->_get_user_in_room( $user_id, $args{displayname}, $room_id )->then( sub {
+    $self->_get_user_in_room( $user_id, $args{displayname}, $room_name )->then( sub {
         my ( $room ) = @_;
         $room->send_message(
             type => $type,
@@ -286,7 +284,7 @@ sub send_matrix_message
 
         # Send failed because user wasn't in the room
         $self->log( "User isn't in the room after all" );
-        delete $self->{user_rooms}{$user_id}{$room_id};
+        delete $self->{user_rooms}{$user_id}{$room_name};
     });
 }
 

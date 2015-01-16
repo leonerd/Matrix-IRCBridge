@@ -57,7 +57,7 @@ my @next;
     my $f = $dist->fire_async( send_matrix_message =>
         user_id     => "login-user",
         displayname => "(IRC login-user)",
-        room_id     => "!abcdefg:server.here",
+        room_name   => "!abcdefg:server.here",
         type        => "m.text",
         message     => "Another hello",
     );
@@ -105,10 +105,10 @@ my @next;
 
     # Sending a second message should now be nice and cheap
     my $f2 = $dist->fire_async( send_matrix_message =>
-        user_id => "login-user",
-        room_id => "!abcdefg:server.here",
-        type    => "m.text",
-        message => "Second line",
+        user_id   => "login-user",
+        room_name=> "!abcdefg:server.here",
+        type      => "m.text",
+        message   => "Second line",
     );
     $f2->on_fail( sub { die @_ } );
 
@@ -125,7 +125,7 @@ my @next;
     my $f = $dist->fire_async( send_matrix_message =>
         user_id     => "new-user",
         displayname => "(IRC new-user)",
-        room_id     => "!abcdefg:server.here",
+        room_name   => "!abcdefg:server.here",
         type        => "m.text",
         message     => "Hi again",
     );
