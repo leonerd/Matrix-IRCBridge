@@ -156,6 +156,9 @@ sub _on_room_message
     my $self = shift;
     my ( $room, $from, $content ) = @_;
 
+    # Suppress messages from my own ghosts
+    return if $self->{user_matrix}{$from->user->user_id};
+
     my $room_alias = $self->{room_alias_for_id}{$room->room_id} or return;
     $self->log( "message in $room_alias: " . $content->{body} );
 
