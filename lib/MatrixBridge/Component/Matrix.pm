@@ -146,9 +146,29 @@ sub shutdown
 {
     my $self = shift;
 
-    print STDERR "TODO: Shutdown Matrix here\n";
+    # Code is a little neater to read this way
+    Future->done->then_with_f( sub {
+        return $_[0] unless $self->conf->{"remove-users-on-shutdown"} // 1;
 
-    Future->done(1);
+        $self->log( "Removing ghost users from Matrix rooms" );
+
+        my @rooms = map { values %$_ } values %{ $self->{user_rooms} };
+        Future->wait_all( map {
+            # These are all futures that (might) yield Rooms
+            my $f = $_;
+            $f->is_ready ? $f->get->leave->else_done() : ()
+        } @rooms )
+    })->then_with_f( sub {
+        return $_[0] unless $self->conf->{"remove-bot-on-shutdown"} // 1;
+
+        $self->log( "Removing bot from Matrix rooms" );
+
+        my @rooms = values %{ $self->{bot_matrix_rooms} };
+        Future->wait_all( map {
+            # These are all Rooms directly
+            $_->leave->else_done()
+        } @rooms )
+    });
 }
 
 sub _on_room_message
