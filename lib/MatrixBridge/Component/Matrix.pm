@@ -5,6 +5,7 @@ use warnings;
 use base qw( MatrixBridge::Component );
 
 use curry;
+use Digest::SHA qw( hmac_sha1_base64 );
 use Future;
 use Future::Utils qw( try_repeat );
 
@@ -40,9 +41,11 @@ sub init
     $dist->subscribe_async( $_ => $self->${\"curry::$_"} ) for qw(
         add_bridge_config
         startup shutdown
+
+        send_matrix_message
     );
 
-    $dist->declare_signal( 'on_matrix_message' );
+    $dist->declare_signal( $_ ) for qw( on_matrix_message send_matrix_message );
 
     my $matrix_config = $self->{matrix_config} = {
         %{ $self->conf->{matrix} },
@@ -80,8 +83,10 @@ sub init
     $self->loop->add( $matrix );
 
     $self->{bot_matrix} = $matrix;
-
     $self->{bot_matrix_rooms} = {};
+
+    $self->{user_matrix} = {};
+    $self->{user_rooms} = {};
 
     # Incoming Matrix room messages only have the (opaque) room ID, so we'll need
     # to remember what alias we joined those rooms by
@@ -169,15 +174,117 @@ sub _on_room_message
     );
 }
 
-sub on_message
+sub _make_user
 {
     my $self = shift;
-    my ( $dist, $type, @args ) = @_;
+    my ( $matrix_id, $displayname ) = @_;
 
-    return Future->done if $type eq "matrix";
+    $self->log( "making new Matrix user for $matrix_id" );
 
-    warn "[Matrix] TODO - echo message out";
-    Future->done;
+    # Generate a password for this user
+    my $password = hmac_sha1_base64( $matrix_id, $self->conf->{"matrix-password-key"} );
+
+    my $user_matrix = Net::Async::Matrix->new(
+        %{ $self->conf->{'matrix'} },
+    );
+    $self->{bot_matrix}->add_child( $user_matrix );
+
+    return
+        # Try first to log in as an existing user
+        $user_matrix->login(
+            user_id  => $matrix_id,
+            password => $password,
+        )
+    ->else( sub {
+        my ($failure) = @_;
+        $self->log( "login as existing user failed - $failure" );
+
+        # If it failed, try to register an account
+        $user_matrix->register(
+            user_id => $matrix_id,
+            password => $password,
+            %{ $self->conf->{"matrix-register"} || {} },
+        )
+    })->then( sub {
+        $user_matrix->set_displayname( $displayname );
+    })->then( sub {
+        $user_matrix->start->then_done( $user_matrix );
+    })->on_done(sub {
+        $self->log( "new Matrix user ready" );
+    })->on_fail(sub {
+        my ( $failure ) = @_;
+        $self->log( "failed to register or login for new user - $failure" );
+    });
+}
+
+sub _join_user_to_room
+{
+    my $self = shift;
+    my ( $user_matrix, $room_id ) = @_;
+
+    my $room_config = $self->{bridged_rooms}{$room_id};
+
+    ( $room_config->{"matrix-needs-invite"} ?
+        # Inviting an existing member causes an error; we'll have to ignore it
+        $self->{bot_matrix_rooms}{$room_id}->invite( $user_matrix->myself->user_id )
+            ->else_done() : # TODO(paul): a finer-grained error ignoring condition
+        Future->done
+    )->then( sub {
+        $user_matrix->join_room( $room_id );
+    });
+}
+
+sub _get_user_in_room
+{
+    my $self = shift;
+    my ( $user_id, $displayname, $room_id ) = @_;
+
+    ( $self->{user_matrix}{$user_id} ||= $self->_make_user( $user_id, $displayname )
+        ->on_fail( sub { delete $self->{user_matrix}{$user_id} } )
+    )->then( sub {
+        my ( $user_matrix ) = @_;
+        my $user_rooms = $self->{user_rooms}{$user_id} //= {};
+
+        return $user_rooms->{$room_id} //= $self->_join_user_to_room( $user_matrix, $room_id )
+            ->on_fail( sub { delete $user_rooms->{$room_id} } );
+    });
+}
+
+sub send_matrix_message
+{
+    my $self = shift;
+    my ( $dist, %args ) = @_;
+
+    my $user_id = $args{user_id};
+    my $room_id = $args{room_id};
+    my $type    = $args{type};
+    my $message = $args{message};
+
+    $self->_get_user_in_room( $user_id, $args{displayname}, $room_id )->then( sub {
+        my ( $room ) = @_;
+        $room->send_message(
+            type => $type,
+            %{ build_formatted_message( $message ) },
+        )
+    })->on_fail( sub {
+        my ( $failure ) = @_;
+        # If the ghost user isn't actually in the room, or was kicked and
+        # we didn't notice (TODO: notice kicks), then this send will fail.
+        # We won't bother retrying this but we should at least forget the
+        # ghost's membership in the room, so next attempt will try to join
+        # again.
+
+        # SPEC TODO: we really need a nicer way to determine this.
+        return unless @_ > 1 and $_[1] eq "http";
+        my $resp = $_[2];
+        return unless $resp and $resp->code == 403;
+        my $err = eval { JSON->new->decode( $resp->decoded_content ) } or return;
+        $err->{error} =~ m/^User \S+ not in room / or return;
+
+        # Send failed because user wasn't in the room
+        $self->log( "User isn't in the room after all" );
+        delete $self->{user_rooms}{$user_id}{$room_id};
+    });
 }
 
 0x55AA;
