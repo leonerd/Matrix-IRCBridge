@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use IO::Async::Test;
 
 use MatrixBridge::Component::Matrix;
 
@@ -27,6 +28,8 @@ my $matrix = MatrixBridge::Component::Matrix->new(
     },
     loop => my $loop = IO::Async::Loop->new,
 );
+
+testing_loop( $loop );
 
 $dist->declare_signal( 'add_bridge_config' );
 $dist->fire_sync( add_bridge_config =>
@@ -95,7 +98,7 @@ my $f = $dist->fire_async( startup => );
     );
 
     # Might not yet have the room join future, because of the 0-second delay
-    $loop->loop_once(1) until @next;
+    wait_for { @next };
 
     # POST /join
     (shift @next)->[2]->done( { room_id => "!abcdefg:server.here" } );
