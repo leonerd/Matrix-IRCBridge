@@ -22,3 +22,13 @@ send_matrix_message -- %args
 
     displayname => Displayname of the sending user
     content     => Full content body
+
+
+on_irc_message -- %args
+  Invoked on receipt of an inbound message
+  Args are:
+    nick      => IRC user nickname
+    ident     => IRC user ident name
+    channel   => Channel name
+    is_action => True for CTCP ACTIONs, false for regular PRIVMSGs
+    message   => String::Tagged::Formatted message
