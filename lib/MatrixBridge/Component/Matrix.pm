@@ -10,7 +10,7 @@ use Future;
 use Future::Utils qw( try_repeat );
 
 use IO::Socket::SSL qw( SSL_VERIFY_NONE );
-use Net::Async::Matrix 0.13; # $room->invite; ->join_room bugfix
+use Net::Async::Matrix 0.15; # enable_events
 use Net::Async::Matrix::Utils qw( parse_formatted_message build_formatted_message );
 
 # A Future utility
@@ -207,6 +207,7 @@ sub _make_user
 
     my $user_matrix = Net::Async::Matrix->new(
         %{ $self->conf->{'matrix'} },
+        enable_events => 0, # ghosts don't need to receive events
     );
     $self->{bot_matrix}->add_child( $user_matrix );
 

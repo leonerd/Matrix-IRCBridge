@@ -3,7 +3,7 @@ requires 'parent', 0;
 requires 'Event::Distributor', 0;
 requires 'Future', '>= 0.29';
 requires 'Net::Async::IRC', 0;
-requires 'Net::Async::Matrix', '>= 0.08';
+requires 'Net::Async::Matrix', '>= 0.15';
 requires 'Net::Async::Matrix::Utils';
 requires 'IO::Async', '>= 0.63';
 requires 'IO::Async::SSL', 0;

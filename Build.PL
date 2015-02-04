@@ -12,7 +12,7 @@ Module::Build->new(
         'Event::Distributor' => 0,
         'Future' => '0.29',
         'Net::Async::IRC' => 0,
-        'Net::Async::Matrix' => '0.08',
+        'Net::Async::Matrix' => '0.15',
         'Net::Async::Matrix::Utils' => 0,
         'IO::Async' => '0.63',
         'IO::Async::SSL' => 0,
