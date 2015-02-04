@@ -122,7 +122,6 @@ sub _on_message
     my $self = shift;
     my ( $message, $is_action, $text, $hints ) = @_;
 
-    return if $hints->{is_notice};
     return if exists $self->{user_irc}{ $hints->{prefix_name_folded} };
 
     my $channel = $hints->{target_name};
@@ -136,6 +135,7 @@ sub _on_message
         ident     => $hints->{prefix_name},
         channel   => $channel,
         is_action => $is_action,
+        is_notice => $hints->{is_notice},
         message   => $msg,
     );
 }
@@ -215,6 +215,7 @@ sub send_irc_message
     my $ident     = $args{ident};
     my $channel   = $args{channel};
     my $is_action = $args{is_action};
+    my $is_notice = $args{is_notice};
     my $message   = $args{message};
 
     ( $args{as_bot}
@@ -227,9 +228,15 @@ sub send_irc_message
             String::Tagged::IRC->new_from_formatted( $message )->build_irc :
             $message;
 
-        $is_action
-            ? $user_irc->send_ctcp( undef, $channel, "ACTION", $rawmessage )
-            : $user_irc->send_message( "PRIVMSG", undef, $channel, $rawmessage );
+        if( $is_notice ) {
+            $user_irc->send_message( "NOTICE", undef, $channel, $rawmessage );
+        }
+        elsif( $is_action ) {
+            $user_irc->send_ctcp( undef, $channel, "ACTION", $rawmessage );
+        }
+        else {
+            $user_irc->send_message( "PRIVMSG", undef, $channel, $rawmessage );
+        }
     });
 }
 

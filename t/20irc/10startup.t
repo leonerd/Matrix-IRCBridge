@@ -108,7 +108,23 @@ $dist->fire_sync( add_bridge_config =>
           ident     => "SomeNick",   # TODO: this ought to be 'user'
           channel   => "#channel",
           is_action => 0,
+          is_notice => 0,
           message   => "Here is the message",
+        },
+        'on_irc_message arguments'
+    );
+
+    $server_stream->write( ":SomeNick!user\@their.host NOTICE #channel :And here is another one$CRLF" );
+
+    wait_for { scalar @received };
+
+    is_deeply( shift @received,
+        { nick      => "SomeNick",
+          ident     => "SomeNick",   # TODO: this ought to be 'user'
+          channel   => "#channel",
+          is_action => 0,
+          is_notice => 1,
+          message   => "And here is another one",
         },
         'on_irc_message arguments'
     );

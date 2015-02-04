@@ -155,4 +155,23 @@ my $irc = MatrixBridge::Component::IRC->new(
     ok( $f->is_ready, '$f is now ready' );
 }
 
+# as notice
+{
+    my $f = $dist->fire_async( send_irc_message =>
+        nick      => "TestUser",
+        ident     => "testuser",
+        channel   => "#a-channel",
+        is_notice => 1,
+        message   => "Announcement here",
+    );
+    $f->on_fail( sub { die @_ } );
+
+    # Expect PRIVMSG
+    like( $server_stream->read_until( $CRLF )->get,
+        qr/^NOTICE #a-channel :Announcement/, 'IRC user sends NOTICE' );
+
+    wait_for { $f->is_ready };
+    ok( $f->is_ready, '$f is now ready' );
+}
+
 done_testing;
