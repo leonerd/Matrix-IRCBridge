@@ -23,9 +23,11 @@ sub init
     $dist->subscribe_async( $_ => $self->${\"curry::$_"} ) for qw(
         add_bridge_config
         startup shutdown
+
+        send_irc_message
     );
 
-    $dist->declare_signal( $_ ) for qw( on_irc_message );
+    $dist->declare_signal( $_ ) for qw( on_irc_message send_irc_message );
 
     my $irc_config = $self->{irc_config} = {
         %{ $self->conf->{irc} },
@@ -67,6 +69,9 @@ sub init
     $self->loop->add( $irc );
 
     $self->{bot_irc} = $irc;
+
+    $self->{user_irc} = {};
+    $self->{user_channels} = {};
 
     $self->{bridged_channels} = {};
 }
@@ -128,6 +133,90 @@ sub _on_message
         is_action => $is_action,
         message   => $msg,
     );
+}
+
+sub _canonise_irc_name
+{
+    my $self = shift;
+    my ( $name ) = @_;
+
+    my $maxlen = $self->{bot_irc}->isupport( 'NICKLEN' ) // 9;
+    return lc substr $name, 0, $maxlen;
+}
+
+sub _make_user
+{
+    my $self = shift;
+    my ( $nick_canon, $nick, $ident ) = @_;
+
+    $self->log( "making new IRC user for $nick" );
+
+    my $user_irc = Net::Async::IRC->new(
+        encoding => "UTF-8",
+        user => $ident,
+
+        on_message_KICK => sub {
+            my ( $user_irc, $message, $hints ) = @_;
+
+            # TODO: Get NaIRC to add kicked_is_me hint
+            my $kicked_is_me = $user_irc->is_nick_me( $hints->{kicked_nick} );
+
+            _on_irc_kicked( $nick_canon, $hints->{target_name} ) if $kicked_is_me;
+        },
+
+        on_closed => sub {
+            _on_irc_closed( $nick_canon );
+        },
+    );
+    $self->{bot_irc}->add_child( $user_irc );
+
+    return $user_irc->login(
+        nick => $nick,
+        %{ $self->conf->{'irc'} },
+    )->on_done(sub {
+        $self->log( "new IRC user ready" );
+    });
+}
+
+sub _get_user_in_channel
+{
+    my $self = shift;
+    my ( $nick, $ident, $channel ) = @_;
+
+    my $nick_canon = $self->_canonise_irc_name( $nick );
+
+    ( $self->{user_irc}{$nick_canon} ||= $self->_make_user( $nick_canon, $nick, $ident )
+        ->on_fail( sub { delete $self->{user_irc}{$nick_canon} } )
+    )->then( sub {
+        my ( $user_irc ) = @_;
+        return $self->{user_channels}{$nick_canon}{$channel} //=
+            $user_irc->send_message( "JOIN", undef, $channel )->then_done( $user_irc )
+            ->on_fail( sub { delete $self->{user_channels}{$nick_canon}{$channel} } );
+        });
+}
+
+sub send_irc_message
+{
+    my $self = shift;
+    my ( $dist, %args ) = @_;
+
+    my $nick      = $args{nick};
+    my $ident     = $args{ident};
+    my $channel   = $args{channel};
+    my $is_action = $args{is_action};
+    my $message   = $args{message};
+
+    $self->_get_user_in_channel( $nick, $ident, $channel )->then( sub {
+        my ( $user_irc ) = @_;
+
+        my $rawmessage = ref $message ?
+            String::Tagged::IRC->new_from_formatted( $message )->build_irc :
+            $message;
+
+        $is_action
+            ? $user_irc->send_ctcp( undef, $channel, "ACTION", $rawmessage )
+            : $user_irc->send_message( "PRIVMSG", undef, $channel, $rawmessage );
+    });
 }
 
 0x55AA;

@@ -25,7 +25,8 @@ send_matrix_message -- %args
 
 
 on_irc_message -- %args
-  Invoked on receipt of an inbound message
+send_irc_message -- %args
+  Invoked on receipt of an inbound message, or to request an outbound message
   Args are:
     nick      => IRC user nickname
     ident     => IRC user ident name
