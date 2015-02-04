@@ -115,6 +115,7 @@ sub startup
 sub shutdown
 {
     # do nothing
+    Future->done;
 }
 
 sub _on_message
