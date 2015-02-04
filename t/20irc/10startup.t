@@ -87,6 +87,8 @@ $dist->fire_sync( add_bridge_config =>
     like( $server_stream->read_until( $CRLF )->get,
         qr/^JOIN #the-channel/, 'Bot joins the channel' );
 
+    $server_stream->write( ":MyBot!bot\@localhost JOIN #the-channel$CRLF" );
+
     wait_for { $f->is_ready };
     ok( $f->is_ready, '$f is now ready' );
 }

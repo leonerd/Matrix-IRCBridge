@@ -39,7 +39,7 @@ use IO::Async::Loop;
     # First, the awkward CODErefs
     is( ref delete $nairc_args{$_}, "CODE", "$_ => CODE" ) for qw(
         on_error on_closed
-        on_message_text on_message_ctcp_ACTION
+        on_message_JOIN on_message_text on_message_ctcp_ACTION
     );
 
     is_deeply( \%nairc_args,

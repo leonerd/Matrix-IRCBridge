@@ -35,11 +35,18 @@ sub init
 
     my $reconnect_delay = 5;
 
+    my $on_self_join = $self->curry::weak::_on_self_join;
     my $on_message = $self->curry::weak::_on_message;
     my $do_startup = $self->curry::weak::startup;
 
     my $irc = Net::Async::IRC->new(
         encoding => "UTF-8",
+        on_message_JOIN => sub {
+            my ( $self, $message, $hints ) = @_;
+            return unless $hints->{prefix_is_me};
+
+            $on_self_join->( $message, $hints );
+        },
         on_message_ctcp_ACTION => sub {
             my ( $self, $message, $hints ) = @_;
             $reconnect_delay = 5;
@@ -103,9 +110,9 @@ sub startup
 
             $self->loop->delay_future( after => $delay++ )->then( sub {
                 $irc->send_message( "JOIN", undef, $channel )
+            })->then( sub {
+                return $self->{bot_join_guard}{$channel} = Future->new
             })->on_done( sub {
-                # TODO: We haven't joined yet, we've just sent the join message.
-                # We should await a confirmation from the server
                 $self->log( "joined $channel" );
             });
         } values %{ $self->{bridged_channels} } );
@@ -116,6 +123,17 @@ sub shutdown
 {
     # do nothing
     Future->done;
+}
+
+sub _on_self_join
+{
+    my $self = shift;
+    my ( $message, $hints ) = @_;
+
+    my $channel = $hints->{target_name};
+
+    my $f = delete $self->{bot_join_guard}{$channel} or return;
+    $f->done;
 }
 
 sub _on_message
@@ -161,6 +179,16 @@ sub _make_user
         encoding => "UTF-8",
         user => $ident,
 
+        on_message_JOIN => sub {
+            my ( $user_irc, $message, $hints ) = @_;
+
+            return unless $hints->{prefix_is_me};
+
+            my $channel = $hints->{target_name};
+
+            my $f = delete $self->{user_join_guard}{$nick_canon}{$channel} or return;
+            $f->done;
+        },
         on_message_KICK => sub {
             my ( $user_irc, $message, $hints ) = @_;
 
@@ -190,6 +218,16 @@ sub _make_user
     });
 }
 
+sub _join_channel
+{
+    my $self = shift;
+    my ( $user_irc, $nick_canon, $channel ) = @_;
+
+    $user_irc->send_message( "JOIN", undef, $channel )->then( sub {
+        return $self->{user_join_guard}{$nick_canon}{$channel} = Future->new;
+    });
+}
+
 sub _get_user_in_channel
 {
     my $self = shift;
@@ -202,7 +240,8 @@ sub _get_user_in_channel
     )->then( sub {
         my ( $user_irc ) = @_;
         return $self->{user_channels}{$nick_canon}{$channel} //=
-            $user_irc->send_message( "JOIN", undef, $channel )->then_done( $user_irc )
+            $self->_join_channel( $user_irc, $nick_canon, $channel )
+                ->then_done( $user_irc )
             ->on_fail( sub { delete $self->{user_channels}{$nick_canon}{$channel} } );
         });
 }

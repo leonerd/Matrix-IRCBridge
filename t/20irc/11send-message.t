@@ -126,7 +126,7 @@ my $irc = MatrixBridge::Component::IRC->new(
     like( $server_stream->read_until( $CRLF )->get,
         qr/^JOIN #different/, 'IRC user JOINs new channel' );
 
-    $server_stream->write( ":TestUser!testuser\@localhost JOIN #a-channel$CRLF" );
+    $server_stream->write( ":TestUser!testuser\@localhost JOIN #different$CRLF" );
 
     # Expect PRIVMSG
     like( $server_stream->read_until( $CRLF )->get,
