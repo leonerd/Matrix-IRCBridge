@@ -159,13 +159,19 @@ sub _make_user
             my ( $user_irc, $message, $hints ) = @_;
 
             # TODO: Get NaIRC to add kicked_is_me hint
-            my $kicked_is_me = $user_irc->is_nick_me( $hints->{kicked_nick} );
+            return unless $user_irc->is_nick_me( $hints->{kicked_nick} );
 
-            _on_irc_kicked( $nick_canon, $hints->{target_name} ) if $kicked_is_me;
+            my $channel = $hints->{target_name};
+
+            $self->log( "user $nick got kicked from $channel" );
+            delete $self->{user_channels}{$nick_canon}{$channel};
         },
 
         on_closed => sub {
-            _on_irc_closed( $nick_canon );
+            $self->log( "user $nick connection lost" );
+
+            delete $self->{user_channels}{$nick_canon};
+            delete $self->{user_irc}{$nick_canon};
         },
     );
     $self->{bot_irc}->add_child( $user_irc );
@@ -206,7 +212,10 @@ sub send_irc_message
     my $is_action = $args{is_action};
     my $message   = $args{message};
 
-    $self->_get_user_in_channel( $nick, $ident, $channel )->then( sub {
+    ( $args{as_bot}
+        ? Future->done( $self->{bot_irc} )
+        : $self->_get_user_in_channel( $nick, $ident, $channel )
+    )->then( sub {
         my ( $user_irc ) = @_;
 
         my $rawmessage = ref $message ?

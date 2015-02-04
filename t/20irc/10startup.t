@@ -83,6 +83,10 @@ $dist->fire_sync( add_bridge_config =>
 
     $server_stream->write( ":server 001 MyBot :Welcome to IRC$CRLF" );
 
+    # Expect JOIN
+    like( $server_stream->read_until( $CRLF )->get,
+        qr/^JOIN #the-channel/, 'Bot joins the channel' );
+
     wait_for { $f->is_ready };
     ok( $f->is_ready, '$f is now ready' );
 }
@@ -108,6 +112,22 @@ $dist->fire_sync( add_bridge_config =>
         },
         'on_irc_message arguments'
     );
+}
+
+# send as bot
+{
+    my $f = $dist->fire_async( send_irc_message =>
+        as_bot  => 1,
+        channel => "#channel",
+        message => "an announcement from the bot",
+    );
+
+    like( $server_stream->read_until( $CRLF )->get,
+        qr/^PRIVMSG #channel :an announcement from the bot/,
+        'IRC bot can send messages itself' );
+
+    wait_for { $f->is_ready };
+    ok( $f->is_ready, '$f is now ready' );
 }
 
 done_testing;

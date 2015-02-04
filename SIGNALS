@@ -32,4 +32,5 @@ send_irc_message -- %args
     ident     => IRC user ident name
     channel   => Channel name
     is_action => True for CTCP ACTIONs, false for regular PRIVMSGs
+    as_bot    => True to send message as the bot itself (nick/ident will be ignored)
     message   => String::Tagged::Formatted message
