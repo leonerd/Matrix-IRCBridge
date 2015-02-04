@@ -112,6 +112,11 @@ sub startup
     })
 }
 
+sub shutdown
+{
+    # do nothing
+}
+
 sub _on_message
 {
     my $self = shift;
