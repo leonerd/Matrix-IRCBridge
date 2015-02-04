@@ -118,7 +118,7 @@ sub _on_message
     my ( $message, $is_action, $text, $hints ) = @_;
 
     return if $hints->{is_notice};
-    # return if is_irc_user($hints->{prefix_name});
+    return if exists $self->{user_irc}{ $hints->{prefix_name_folded} };
 
     my $channel = $hints->{target_name};
 
