@@ -126,11 +126,15 @@ $dist->subscribe_sync( on_matrix_message => sub {
     $irc_user = "$CONFIG{'irc-user-prefix'}-$irc_user";
 
     my $emote;
+    my $notice;
     if( $msgtype eq 'm.text' ) {
         $emote = 0;
     }
     elsif( $msgtype eq 'm.emote' ) {
         $emote = 1;
+    }
+    elsif( $msgtype eq 'm.notice' ) {
+        $notice = 1;
     }
     elsif( $msgtype eq 'm.image' ) {
         # We can't directly post an image URL onto IRC as the ghost user,
@@ -169,6 +173,7 @@ $dist->subscribe_sync( on_matrix_message => sub {
             channel   => $irc_channel,
             message   => $line,
             is_action => $emote,
+            is_notice => $notice,
         ));
     }
 });
@@ -185,11 +190,15 @@ $dist->subscribe_sync( on_irc_message => sub {
 
     warn "  [IRC] sending message for $matrix_id - $message\n";
 
+    my $msgtype = $args{is_notice} ? "m.notice"
+                : $args{is_action} ? "m.emote"
+                                   : "m.text";
+
     adopt_future( $dist->fire_async( send_matrix_message =>
         user_id     => $matrix_id,
         displayname => "(IRC $args{nick})",
         room_name   => $matrix_room,
-        type        => ( $args{is_action} ? 'm.emote' : 'm.text' ),
+        type        => $msgtype,
         message     => $message->as_formatted,
     ));
 });

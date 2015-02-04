@@ -10,7 +10,7 @@ use Future;
 use Future::Utils qw( try_repeat );
 
 use IO::Socket::SSL qw( SSL_VERIFY_NONE );
-use Net::Async::Matrix 0.15; # enable_events
+use Net::Async::Matrix 0.15; # enable_events, m.notice
 use Net::Async::Matrix::Utils qw( parse_formatted_message build_formatted_message );
 
 # A Future utility
