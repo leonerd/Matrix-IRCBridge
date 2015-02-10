@@ -9,6 +9,8 @@ use Future;
 
 use String::Tagged::IRC 0.02; # Formatting
 
+use IO::Async::Timer::Countdown;
+
 # placate bug in Protocol::IRC::Message
 {
     local $_;
@@ -17,7 +19,7 @@ use String::Tagged::IRC 0.02; # Formatting
 
 use Struct::Dumb;
 
-struct User => [qw( irc channels )];
+struct User => [qw( irc channels idle )];
 
 sub init
 {
@@ -212,14 +214,31 @@ sub _make_user
     );
     $self->{bot_irc}->add_child( $user_irc );
 
+    my $timer = $self->{user_idle}{$nick_canon} = IO::Async::Timer::Countdown->new(
+        delay => $self->conf->{"irc-idle-timeout"} // 3600,
+        on_expire => sub {
+            $self->log( "user $nick idle timeout" );
+
+            $user_irc->send_message( "QUIT", undef, "Idle timeout" );
+            $user_irc->close_when_empty;
+
+            # Delete the user already, so a new one will be created if required
+            # between now and when it gets closed
+            delete $self->{users}{$nick_canon};
+        },
+    );
+    $user_irc->add_child( $timer );
+
     return $user_irc->login(
         nick => $nick,
         %{ $self->conf->{'irc'} },
     )->then( sub {
         $self->log( "new IRC user ready" );
 
+        $timer->start;
+
         Future->done(
-            User( $user_irc, {} )
+            User( $user_irc, {}, $timer )
         );
     })
 }
@@ -246,6 +265,8 @@ sub _get_user_in_channel
     )->then( sub {
         my ( $user ) = @_;
         my $user_channels = $user->channels;
+
+        $user->idle->reset;
 
         return $user_channels->{$channel} //=
             $self->_join_channel( $user->irc, $nick_canon, $channel )
