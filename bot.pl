@@ -93,6 +93,8 @@ foreach ( @{ $CONFIG{bridge} } ) {
         $f->on_fail( sub {
             my ( $failure, $name, @args ) = @_;
 
+            print STDERR "Fail: $failure\n";
+
             if( defined $name and $name eq "http" ) {
                 my ($response, $request) = @args;
                 print STDERR "HTTP failure details:\n" .
