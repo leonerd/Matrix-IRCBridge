@@ -15,6 +15,10 @@ use String::Tagged::IRC 0.02; # Formatting
     require Net::Async::IRC;
 }
 
+use Struct::Dumb;
+
+struct User => [qw( irc channels )];
+
 sub init
 {
     my $self = shift;
@@ -77,8 +81,7 @@ sub init
 
     $self->{bot_irc} = $irc;
 
-    $self->{user_irc} = {};
-    $self->{user_channels} = {};
+    $self->{users} = {}; # values are 'User' structs
 
     $self->{bridged_channels} = {};
 }
@@ -141,7 +144,7 @@ sub _on_message
     my $self = shift;
     my ( $message, $is_action, $text, $hints ) = @_;
 
-    return if exists $self->{user_irc}{ $hints->{prefix_name_folded} };
+    return if exists $self->{users}{ $hints->{prefix_name_folded} };
 
     my $channel = $hints->{target_name};
 
@@ -198,14 +201,13 @@ sub _make_user
             my $channel = $hints->{target_name};
 
             $self->log( "user $nick got kicked from $channel" );
-            delete $self->{user_channels}{$nick_canon}{$channel};
+            delete $self->{users}{$nick_canon}->channels->{$channel};
         },
 
         on_closed => sub {
             $self->log( "user $nick connection lost" );
 
-            delete $self->{user_channels}{$nick_canon};
-            delete $self->{user_irc}{$nick_canon};
+            delete $self->{users}{$nick_canon};
         },
     );
     $self->{bot_irc}->add_child( $user_irc );
@@ -213,9 +215,13 @@ sub _make_user
     return $user_irc->login(
         nick => $nick,
         %{ $self->conf->{'irc'} },
-    )->on_done(sub {
+    )->then( sub {
         $self->log( "new IRC user ready" );
-    });
+
+        Future->done(
+            User( $user_irc, {} )
+        );
+    })
 }
 
 sub _join_channel
@@ -235,14 +241,16 @@ sub _get_user_in_channel
 
     my $nick_canon = $self->_canonise_irc_name( $nick );
 
-    ( $self->{user_irc}{$nick_canon} ||= $self->_make_user( $nick_canon, $nick, $ident )
-        ->on_fail( sub { delete $self->{user_irc}{$nick_canon} } )
+    ( $self->{users}{$nick_canon} ||= $self->_make_user( $nick_canon, $nick, $ident )
+        ->on_fail( sub { delete $self->{users}{$nick_canon} } )
     )->then( sub {
-        my ( $user_irc ) = @_;
-        return $self->{user_channels}{$nick_canon}{$channel} //=
-            $self->_join_channel( $user_irc, $nick_canon, $channel )
-                ->then_done( $user_irc )
-            ->on_fail( sub { delete $self->{user_channels}{$nick_canon}{$channel} } );
+        my ( $user ) = @_;
+        my $user_channels = $user->channels;
+
+        return $user_channels->{$channel} //=
+            $self->_join_channel( $user->irc, $nick_canon, $channel )
+                ->then_done( $user->irc )
+            ->on_fail( sub { delete $user_channels->{$channel} } );
         });
 }
 

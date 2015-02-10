@@ -18,6 +18,7 @@ Module::Build->new(
         'IO::Async::SSL' => 0,
         'IO::Socket::SSL' => 0,
         'String::Tagged::IRC' => '0.02',
+        'Struct::Dumb' => 0,
         'YAML' => 0,
     },
     test_requires => {

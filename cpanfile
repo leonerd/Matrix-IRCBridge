@@ -9,6 +9,7 @@ requires 'IO::Async', '>= 0.63';
 requires 'IO::Async::SSL', 0;
 requires 'IO::Socket::SSL', 0;
 requires 'String::Tagged::IRC', '>= 0.02';
+requires 'Struct::Dumb', 0;
 requires 'YAML', 0;
 requires 'Digest::SHA', 0;
 
