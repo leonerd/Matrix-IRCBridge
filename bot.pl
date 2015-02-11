@@ -167,7 +167,7 @@ $dist->subscribe_sync( on_matrix_message => sub {
         $line = substr( $line, 0, MAX_IRC_LINE-3 ) . "..." if
             length( $line ) > MAX_IRC_LINE;
 
-        warn "  [Matrix] sending message for $irc_user - $line\n";
+        print STDERR "  [Matrix] sending message for $irc_user - $line\n";
 
         adopt_future( $dist->fire_async( send_irc_message =>
             nick      => $irc_user,
@@ -190,7 +190,7 @@ $dist->subscribe_sync( on_irc_message => sub {
 
     my $matrix_id = "irc_$args{ident}";
 
-    warn "  [IRC] sending message for $matrix_id - $message\n";
+    print STDERR "  [IRC] sending message for $matrix_id - $message\n";
 
     my $msgtype = $args{is_notice} ? "m.notice"
                 : $args{is_action} ? "m.emote"
