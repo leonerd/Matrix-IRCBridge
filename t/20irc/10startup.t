@@ -130,6 +130,15 @@ $dist->fire_sync( add_bridge_config =>
         },
         'on_irc_message arguments'
     );
+
+    undef @received;
+
+    # Ignore server NOTICEs
+    $server_stream->write( ":the.server NOTICE #channel :-Hey all, look at this-$CRLF" );
+
+    $loop->loop_once(0.01) for 1 .. 3;
+
+    ok( !scalar @received, 'Server notices are ignored' );
 }
 
 # send as bot

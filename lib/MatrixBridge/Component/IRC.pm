@@ -148,6 +148,9 @@ sub _on_message
 
     return if exists $self->{users}{ $hints->{prefix_name_folded} };
 
+    # Ignore server NOTICEs
+    return if $hints->{is_notice} and !defined $hints->{prefix_nick};
+
     my $channel = $hints->{target_name};
 
     my $msg = String::Tagged::IRC->parse_irc( $text );
