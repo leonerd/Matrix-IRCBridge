@@ -215,7 +215,7 @@ sub _make_user
             delete $self->{users}{$nick_canon};
         },
     );
-    $self->{bot_irc}->add_child( $user_irc );
+    $self->loop->add( $user_irc );
 
     my $timer = $self->{user_idle}{$nick_canon} = IO::Async::Timer::Countdown->new(
         delay => $self->conf->{"irc-idle-timeout"} // 3600,
