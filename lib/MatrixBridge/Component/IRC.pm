@@ -72,11 +72,13 @@ sub init
         on_closed => sub {
             my ( $self ) = @_;
 
-            $self->loop->delay_future( after => $reconnect_delay )->then( sub {
-                $reconnect_delay *= 2 if $reconnect_delay < 300; # ramp up to 5 minutes
+            $self->adopt_future(
+                $self->loop->delay_future( after => $reconnect_delay )->then( sub {
+                    $reconnect_delay *= 2 if $reconnect_delay < 300; # ramp up to 5 minutes
 
-                $self->adopt_future( $do_startup->() );
-            });
+                    $do_startup->();
+                })
+            );
         },
     );
     $self->loop->add( $irc );
@@ -108,6 +110,8 @@ sub startup
 
     # Stagger channel joins to avoid thundering-herd on the server
     my $delay = 0;
+
+    $self->loop->add( $irc ) unless $irc->loop;
 
     $irc->login( %{ $self->{irc_config} }, %{ $self->conf->{"irc-bot"} } )->then(sub {
         Future->wait_all( map {
