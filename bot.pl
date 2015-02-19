@@ -138,7 +138,7 @@ $dist->subscribe_sync( on_matrix_message => sub {
     elsif( $msgtype eq 'm.notice' ) {
         $notice = 1;
     }
-    elsif( $msgtype =~ m/^m\.(?:image|audio|video|file)/ ) {
+    elsif( $msgtype =~ m/^m\.(image|audio|video|file)/ ) {
         my $subtype = $1;
         # We can't directly post a media URL onto IRC as the ghost user,
         # without it being unspoofable. Instead we'll have the bot user
