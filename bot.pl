@@ -138,8 +138,9 @@ $dist->subscribe_sync( on_matrix_message => sub {
     elsif( $msgtype eq 'm.notice' ) {
         $notice = 1;
     }
-    elsif( $msgtype eq 'm.image' ) {
-        # We can't directly post an image URL onto IRC as the ghost user,
+    elsif( $msgtype =~ m/^m\.(?:image|audio|video|file)/ ) {
+        my $subtype = $1;
+        # We can't directly post a media URL onto IRC as the ghost user,
         # without it being unspoofable. Instead we'll have the bot user
         # /itself/ report on this fact
         #
@@ -153,7 +154,7 @@ $dist->subscribe_sync( on_matrix_message => sub {
         adopt_future( $dist->fire_async( send_irc_message =>
             channel => $irc_channel,
             as_bot  => 1,
-            message => "<$irc_user> posted image: $uri - $msg",
+            message => "<$irc_user> posted $subtype: $uri - $msg",
         ) );
         return;
     }
