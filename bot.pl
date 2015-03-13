@@ -199,7 +199,7 @@ $dist->subscribe_sync( on_irc_message => sub {
 
     adopt_future( $dist->fire_async( send_matrix_message =>
         user_id     => $matrix_id,
-        displayname => "(IRC $args{nick})",
+        displayname => "$args{nick} (IRC)",
         room_name   => $matrix_room,
         type        => $msgtype,
         message     => $message->as_formatted,

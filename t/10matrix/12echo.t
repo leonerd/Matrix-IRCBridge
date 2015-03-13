@@ -110,7 +110,7 @@ my $f = $dist->fire_async( startup => );
 {
     my $f = $dist->fire_async( send_matrix_message =>
         user_id     => "login-user",
-        displayname => "(IRC login-user)",
+        displayname => "login-user (IRC)",
         room_name   => "!abcdefg:server.here",
         type        => "m.text",
         message     => "Another hello",

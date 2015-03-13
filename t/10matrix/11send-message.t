@@ -56,7 +56,7 @@ my @next;
 {
     my $f = $dist->fire_async( send_matrix_message =>
         user_id     => "login-user",
-        displayname => "(IRC login-user)",
+        displayname => "login-user (IRC)",
         room_name   => "!abcdefg:server.here",
         type        => "m.text",
         message     => "Another hello",
@@ -82,7 +82,7 @@ my @next;
     # PUT /profile/...
     ok( $p = shift @next, 'fourth request pending' );
     is( $p->[1], '/profile/@login-user:server.here/displayname', 'request URI' );
-    is( $p->[4]->{displayname}, "(IRC login-user)", 'request content displayname' );
+    is( $p->[4]->{displayname}, "login-user (IRC)", 'request content displayname' );
     $p->[2]->done( {} );
 
     # POST /join
@@ -124,7 +124,7 @@ my @next;
 {
     my $f = $dist->fire_async( send_matrix_message =>
         user_id     => "new-user",
-        displayname => "(IRC new-user)",
+        displayname => "new-user (IRC)",
         room_name   => "!abcdefg:server.here",
         type        => "m.text",
         message     => "Hi again",
