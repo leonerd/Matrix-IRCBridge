@@ -36,7 +36,7 @@ if( defined $EVAL_FROM ) {
     };
 }
 
-defined $CONFIG or die "Must supply --configfile\n";
+defined $CONFIG or die "Must supply --config\n";
 
 my %CONFIG = %{ YAML::LoadFile( $CONFIG ) };
 
