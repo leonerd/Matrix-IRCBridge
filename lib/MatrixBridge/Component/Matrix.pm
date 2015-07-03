@@ -228,6 +228,7 @@ sub _make_user
             %{ $self->conf->{"matrix-register"} || {} },
         )
     })->then( sub {
+        return Future->done unless defined $displayname;
         $user_matrix->set_displayname( $displayname );
     })->then( sub {
         $user_matrix->start->then_done( $user_matrix );
