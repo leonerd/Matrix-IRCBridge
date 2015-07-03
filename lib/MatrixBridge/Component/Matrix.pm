@@ -198,7 +198,7 @@ sub _on_room_message
 sub _make_user
 {
     my $self = shift;
-    my ( $matrix_id, $displayname ) = @_;
+    my ( $matrix_id, $displayname, %opts ) = @_;
 
     $self->log( "making new Matrix user for $matrix_id" );
 
@@ -220,6 +220,8 @@ sub _make_user
     ->else( sub {
         my ($failure) = @_;
         $self->log( "login as existing user failed - $failure" );
+
+        return Future->fail( $failure ) if $opts{no_register};
 
         # If it failed, try to register an account
         $user_matrix->register(
@@ -260,9 +262,9 @@ sub _join_user_to_room
 sub _get_user_in_room
 {
     my $self = shift;
-    my ( $user_id, $displayname, $room_name ) = @_;
+    my ( $user_id, $displayname, $room_name, %opts ) = @_;
 
-    ( $self->{user_matrix}{$user_id} ||= $self->_make_user( $user_id, $displayname )
+    ( $self->{user_matrix}{$user_id} ||= $self->_make_user( $user_id, $displayname, %opts )
         ->on_fail( sub { delete $self->{user_matrix}{$user_id} } )
     )->then( sub {
         my ( $user_matrix ) = @_;
